@@ -1,14 +1,14 @@
-# BalanceAI — AI Schedule Arranger & Burnout Alert
+# BalanceAI - AI Schedule Arranger and Burnout Alert
 
-## 👥 Team Members
-- **Freeman Yiu** — Integration / Repo Lead / QA
-- **Youcheng Taing** — Scheduler / Optimizer
-- **Yen Nguyen** — Frontend / UX (Streamlit)
-- **Matthew Yeung** — Burnout Detection Engine
+## Team Members
+- **Freeman Yiu** - Integration / Repo Lead / QA
+- **Youcheng Taing** - Scheduler / Optimizer
+- **Yen Nguyen** - Frontend / UX (React)
+- **Matthew Yeung** - Burnout Detection Engine
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 BalanceAI is an AI-powered web application designed to help students manage their schedules while avoiding burnout.
 
 Students can input their:
@@ -18,33 +18,38 @@ Students can input their:
 - Deadlines
 - Estimated task durations
 
-The system analyzes their schedule, detects burnout risk, and intelligently rearranges tasks into a healthier, more balanced plan.
+The system analyzes the schedule, detects burnout risk, and intelligently rearranges tasks into a healthier, more balanced plan.
 
 ---
 
-## 🎯 Problem Statement
+## Problem Statement
 Students often overload their schedules without realizing the long-term impact on their health and productivity.
 
-Current tools (calendars, planners) help organize tasks but:
+Current tools such as calendars and planners help organize tasks, but they often:
 - Do not detect burnout risk
 - Do not provide intelligent scheduling suggestions
 - Do not optimize workload distribution
 
 ---
 
-## 💡 Our Solution
-BalanceAI goes beyond scheduling.
+## Our Solution
+BalanceAI goes beyond basic scheduling.
 
 It:
-1. **Analyzes workload patterns**
-2. **Detects burnout risk**
-3. **Explains why the schedule is unhealthy**
-4. **Automatically generates a healthier schedule**
+1. Analyzes workload patterns
+2. Detects burnout risk
+3. Explains why the schedule is unhealthy
+4. Automatically generates a healthier schedule
+
+We are updating the project plan to use:
+- A React frontend for interactive schedule input and visualization
+- A Python backend for optimization, burnout logic, and business rules
+- A lightweight API layer between the frontend and backend
 
 ---
 
-## 🧠 How AI is Used
-We use a hybrid AI approach combining rules, heuristics, and intelligent scheduling:
+## How AI Is Used
+We use a hybrid AI approach combining rules, heuristics, and intelligent scheduling.
 
 ### 1. Burnout Detection
 - Rule-based scoring system
@@ -59,118 +64,72 @@ We use a hybrid AI approach combining rules, heuristics, and intelligent schedul
 - Constraint-based scheduling
 - Heuristic optimization
 - Respects:
-  - Fixed commitments (class/work)
-  - Deadlines
+  - Fixed commitments such as class and work
+  - Task deadlines
   - Sleep windows
+  - Daily workload limits
 
 ### 3. Explainability
-- Generates human-readable insights:
+- Generates human-readable insights such as:
   - "You have 3 deadlines within 48 hours"
   - "Thursday exceeds safe workload limits"
+  - "Your schedule includes too much late-night work"
 
 ---
 
-## 🔄 System Workflow
-1. User inputs schedule
-2. System builds initial schedule
-3. Burnout engine analyzes risk
-4. Optimizer rearranges tasks
-5. System compares before vs after
-6. User sees improvements and insights
+## System Workflow
+1. User enters schedule data in the React frontend
+2. Frontend sends the data to the Python backend
+3. Backend builds the initial schedule context
+4. Burnout engine analyzes risk
+5. Optimizer rearranges tasks
+6. System compares before vs after
+7. Frontend displays improvements and insights
 
 ---
 
-## ✨ Features
+## Features
 
-### ✅ Core Features
+### Core Features
 - Input classes, work shifts, and tasks
 - Burnout risk scoring (Low / Medium / High)
 - Explanation of risk factors
 - AI-based schedule optimization
 - Before vs After comparison
 
-### 🚧 Optional / Future Features
+### Optional or Future Features
 - Break recommendations
 - Personalized preferences
 - Energy-based scheduling
 - Export schedule
 - Authentication system
+- Calendar integrations
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
-- Streamlit
+- React
 
 ### Backend
 - Python
 
 ### Libraries
-- Pandas (data handling)
-- OR-Tools / custom heuristics (optimization)
+- Pandas for data handling
+- OR-Tools or custom heuristics for optimization
 
 ### Data Storage
-- JSON / in-memory (for hackathon)
+- JSON / in-memory for hackathon development
 
 ---
 
-## 📁 Project Structure
-```
-balanceai/
-├── app.py
-├── requirements.txt
-├── README.md
-│
-├── src/
-│   ├── burnout/
-│   │   ├── scorer.py
-│   │   └── explainer.py
-│   ├── scheduler/
-│   │   ├── optimizer.py
-│   │   └── constraints.py
-│   ├── integration/
-│   │   └── pipeline.py
-│   ├── ui/
-│   │   ├── forms.py
-│   │   └── views.py
-│   └── utils/
-│       └── validators.py
-│
-├── data/
-│   └── sample_input.json
-│
-└── tests/
-```
-
----
-
-## 🚀 Getting Started
-
-### 1. Clone the repository
-```
-git clone https://github.com/your-repo/balanceai.git
-cd balanceai
-```
-
-### 2. Install dependencies
-```
-pip install -r requirements.txt
-```
-
-### 3. Run the app
-```
-streamlit run app.py
-```
-
----
-
-## 🧪 Example Use Case
+## Example Use Case
 
 ### Input
 - 3 classes
 - 1 work shift
-- 3 assignments (same week)
+- 3 assignments due in the same week
 
 ### Output
 - Burnout Risk: **High**
@@ -179,40 +138,38 @@ streamlit run app.py
   - Deadlines clustered within 2 days
 
 ### After Optimization
-- Tasks redistributed across week
+- Tasks redistributed across the week
 - Burnout Risk reduced to **Moderate**
 
 ---
 
-## 🏆 Innovation
-
+## Innovation
 Unlike traditional planners, BalanceAI:
-- Detects burnout **before it happens**
-- Automatically **restructures schedules**
-- Provides **explainable AI insights**
+- Detects burnout before it happens
+- Automatically restructures schedules
+- Provides explainable AI insights
 
 ---
 
-## 🌍 Impact
+## Impact
 - Helps students maintain mental health
 - Improves productivity and time management
-- Scales globally as a lightweight web tool
+- Scales as a lightweight student planning tool
 
 ---
 
-## 📌 Future Improvements
+## Future Improvements
 - Machine learning-based personalization
 - Mobile app version
-- Integration with Google Calendar
+- Google Calendar integration
 - Long-term burnout prediction
 
 ---
 
-## 📣 Acknowledgments
+## Acknowledgments
 Built for AI Hackathon 2026.
 
 ---
 
-## 📄 License
+## License
 MIT License
-
