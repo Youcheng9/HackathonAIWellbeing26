@@ -165,6 +165,14 @@ def render_input_panel(sample_payload: dict[str, Any]) -> tuple[dict[str, Any], 
                 key="ui_workday_end",
                 help="Example: 22.0 = 10:00 PM.",
             )
+            st.number_input(
+                "Weekly workload comfort limit (hours)",
+                min_value=1.0,
+                max_value=100.0,
+                step=1.0,
+                key="ui_weekly_hours_threshold",
+                help="Burnout alerts will treat totals above this weekly load as risky.",
+            )
 
         with right:
             st.markdown("**Sleep + Search Settings**")
@@ -195,6 +203,44 @@ def render_input_panel(sample_payload: dict[str, Any]) -> tuple[dict[str, Any], 
                 max_value=3.0,
                 step=0.25,
                 key="ui_buffer_hours",
+            )
+
+        burnout_left, burnout_right = st.columns(2)
+        with burnout_left:
+            st.markdown("**Burnout Alert Preferences**")
+            st.number_input(
+                "Late-night cutoff (24h)",
+                min_value=0.0,
+                max_value=24.0,
+                step=0.5,
+                key="ui_late_night_cutoff",
+                help="Work ending at or after this time increases burnout risk.",
+            )
+            st.number_input(
+                "Max consecutive heavy blocks",
+                min_value=1,
+                max_value=10,
+                step=1,
+                key="ui_max_consecutive_blocks",
+                help="Alerts trigger when long blocks are chained beyond this count.",
+            )
+        with burnout_right:
+            st.markdown("**Recovery Preferences**")
+            st.number_input(
+                "Minimum meaningful breaks per long day",
+                min_value=0,
+                max_value=6,
+                step=1,
+                key="ui_min_breaks_per_day",
+                help="Long days should include at least this many 30+ minute breaks.",
+            )
+            st.number_input(
+                "Deadline cluster window (days)",
+                min_value=1,
+                max_value=7,
+                step=1,
+                key="ui_deadline_cluster_days",
+                help="Deadlines inside this many days are treated as a stress cluster.",
             )
 
     st.caption(
@@ -240,6 +286,21 @@ def _initialize_state(sample_payload: dict[str, Any], *, force: bool = False) ->
     )
     st.session_state["ui_buffer_hours"] = float(
         preferences.get("buffer_hours", sample_payload.get("buffer_hours", 1.0))
+    )
+    st.session_state["ui_weekly_hours_threshold"] = float(
+        preferences.get("weekly_hours_threshold", 50.0)
+    )
+    st.session_state["ui_late_night_cutoff"] = float(
+        preferences.get("late_night_cutoff", 23.0)
+    )
+    st.session_state["ui_max_consecutive_blocks"] = int(
+        preferences.get("max_consecutive_blocks", 3)
+    )
+    st.session_state["ui_min_breaks_per_day"] = int(
+        preferences.get("min_breaks_per_day", 1)
+    )
+    st.session_state["ui_deadline_cluster_days"] = int(
+        preferences.get("deadline_cluster_days", 2)
     )
     st.session_state["ui_sleep_start"] = float(sleep_window.get("start", 23.0))
     st.session_state["ui_sleep_end"] = float(sleep_window.get("end", 7.0))
@@ -326,6 +387,11 @@ def _build_payload_from_state() -> dict[str, Any]:
     workday_end = float(st.session_state["ui_workday_end"])
     slot_step = float(st.session_state["ui_slot_step"])
     buffer_hours = float(st.session_state["ui_buffer_hours"])
+    weekly_hours_threshold = float(st.session_state["ui_weekly_hours_threshold"])
+    late_night_cutoff = float(st.session_state["ui_late_night_cutoff"])
+    max_consecutive_blocks = int(st.session_state["ui_max_consecutive_blocks"])
+    min_breaks_per_day = int(st.session_state["ui_min_breaks_per_day"])
+    deadline_cluster_days = int(st.session_state["ui_deadline_cluster_days"])
 
     scheduler_tasks: list[dict[str, Any]] = []
     for task in st.session_state["ui_tasks"]:
@@ -351,6 +417,11 @@ def _build_payload_from_state() -> dict[str, Any]:
             "preferred_study_end": workday_end,
             "slot_step": slot_step,
             "buffer_hours": buffer_hours,
+            "weekly_hours_threshold": weekly_hours_threshold,
+            "late_night_cutoff": late_night_cutoff,
+            "max_consecutive_blocks": max_consecutive_blocks,
+            "min_breaks_per_day": min_breaks_per_day,
+            "deadline_cluster_days": deadline_cluster_days,
         },
         "max_daily_hours": max_daily_hours,
         "workday_start": workday_start,

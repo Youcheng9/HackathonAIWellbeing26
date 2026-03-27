@@ -11,7 +11,12 @@ simple, understandable heuristics instead of a heavyweight solver.
 
 from __future__ import annotations
 
-from typing import TypedDict
+import sys
+
+if sys.version_info < (3, 12):
+    from typing_extensions import TypedDict
+else:  # pragma: no cover - stdlib path on Python 3.12+
+    from typing import TypedDict
 
 from src.scheduler.constraints import (
     DAY_ORDER,
@@ -430,7 +435,11 @@ def _score_candidate_slot(
     """
 
     day = candidate["day"]
-    day_load = get_day_load(day, scheduled_tasks)
+    day_load = _get_total_day_load(
+        day=day,
+        commitments=commitments,
+        scheduled_tasks=scheduled_tasks,
+    )
     proximity_penalty = _calculate_proximity_penalty(
         candidate=candidate,
         commitments=commitments,
@@ -444,6 +453,28 @@ def _score_candidate_slot(
         candidate["start"],
         DAY_ORDER[day],
     )
+
+
+def _get_total_day_load(
+    *,
+    day: DayName,
+    commitments: list[Commitment],
+    scheduled_tasks: list[ScheduledTask],
+) -> float:
+    """Measure a day's full workload, including fixed commitments.
+
+    Burnout and schedule quality depend on the student's total day pressure,
+    not only the task hours placed by the optimizer. Using the combined load
+    helps the optimizer avoid pushing tasks onto days that already contain
+    long class or work blocks.
+    """
+
+    commitment_hours = sum(
+        commitment["end"] - commitment["start"]
+        for commitment in commitments
+        if commitment["day"] == day
+    )
+    return round(commitment_hours + get_day_load(day, scheduled_tasks), 2)
 
 
 def _calculate_proximity_penalty(

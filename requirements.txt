@@ -3,3 +3,6 @@ pandas
 ortools
 pytest
 typing_extensions
+fastapi
+uvicorn
+streamlit

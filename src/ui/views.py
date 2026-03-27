@@ -9,6 +9,8 @@ from typing import Any
 import pandas as pd
 import streamlit as st
 
+from src.burnout.rules import RULES
+from src.burnout.scorer import compute_burnout_score
 from src.scheduler.constraints import DAY_ORDER, can_schedule_task
 
 
@@ -328,14 +330,26 @@ def render_results(payload: dict[str, Any], optimized_result: dict[str, Any]) ->
         tasks=payload.get("tasks", []),
         unscheduled_tasks=before_unscheduled,
         max_daily_hours=settings["max_daily_hours"],
+        weekly_hours_threshold=settings["weekly_hours_threshold"],
+        late_night_cutoff=settings["late_night_cutoff"],
+        max_consecutive_blocks=int(settings["max_consecutive_blocks"]),
+        min_breaks_per_day=int(settings["min_breaks_per_day"]),
+        deadline_cluster_days=int(settings["deadline_cluster_days"]),
     )
-    after_assessment = assess_burnout(
-        commitments=payload.get("commitments", []),
-        scheduled_tasks=after_schedule,
-        tasks=payload.get("tasks", []),
-        unscheduled_tasks=after_unscheduled,
-        max_daily_hours=settings["max_daily_hours"],
-    )
+    after_assessment = _assessment_from_pipeline_metadata(optimized_result)
+    if after_assessment is None:
+        after_assessment = assess_burnout(
+            commitments=payload.get("commitments", []),
+            scheduled_tasks=after_schedule,
+            tasks=payload.get("tasks", []),
+            unscheduled_tasks=after_unscheduled,
+            max_daily_hours=settings["max_daily_hours"],
+            weekly_hours_threshold=settings["weekly_hours_threshold"],
+            late_night_cutoff=settings["late_night_cutoff"],
+            max_consecutive_blocks=int(settings["max_consecutive_blocks"]),
+            min_breaks_per_day=int(settings["min_breaks_per_day"]),
+            deadline_cluster_days=int(settings["deadline_cluster_days"]),
+        )
 
     st.subheader("2) Burnout Risk")
     _render_score_cards(before_assessment, after_assessment)
@@ -455,103 +469,54 @@ def assess_burnout(
     tasks: list[dict[str, Any]],
     unscheduled_tasks: list[dict[str, Any]],
     max_daily_hours: float,
+    weekly_hours_threshold: float,
+    late_night_cutoff: float,
+    max_consecutive_blocks: int,
+    min_breaks_per_day: int,
+    deadline_cluster_days: int,
 ) -> BurnoutAssessment:
-    """Score burnout risk using explainable frontend-side heuristics."""
+    """Score burnout risk using the shared scorer and return a UI-friendly model."""
 
-    block_map = _group_blocks_by_day(commitments, scheduled_tasks)
-    daily_hours = {
-        day: round(sum(block["end"] - block["start"] for block in block_map[day]), 2)
-        for day in DAY_NAMES
-    }
-    total_hours = round(sum(daily_hours.values()), 2)
-    heavy_day_threshold = round(max_daily_hours * 0.75, 2)
-
-    score = 0
-    reasons: list[tuple[int, str]] = []
-
-    def add_reason(points: int, text: str) -> None:
-        nonlocal score
-        score += points
-        reasons.append((points, text))
-
-    overloaded_days = [day for day, hours in daily_hours.items() if hours > max_daily_hours]
-    if overloaded_days:
-        highest_day = max(overloaded_days, key=lambda day: daily_hours[day])
-        add_reason(
-            15,
-            (
-                f"{', '.join(overloaded_days)} exceed the daily safe workload. "
-                f"{highest_day} reaches {daily_hours[highest_day]:.1f} hours."
-            ),
-        )
-
-    max_consecutive_heavy = max(
-        (_count_consecutive_heavy_blocks(block_map[day]) for day in DAY_NAMES),
-        default=0,
+    assessment = compute_burnout_score(
+        scheduled_tasks,
+        tasks,
+        commitments=commitments,
+        unscheduled_tasks=unscheduled_tasks,
+        max_daily_hours=max_daily_hours,
+        weekly_hours_threshold=weekly_hours_threshold,
+        late_night_cutoff=late_night_cutoff,
+        max_consecutive_blocks=max_consecutive_blocks,
+        min_breaks_per_day=min_breaks_per_day,
+        deadline_cluster_days=deadline_cluster_days,
     )
-    if max_consecutive_heavy >= 4:
-        add_reason(10, f"{max_consecutive_heavy} heavy blocks are chained with little recovery.")
-
-    breakless_days = [
-        day
-        for day in DAY_NAMES
-        if daily_hours[day] >= 7.0 and not _has_meaningful_break(block_map[day])
-    ]
-    if breakless_days:
-        add_reason(10, f"{', '.join(breakless_days)} are long days without a meaningful break.")
-
-    clustered_deadlines = _max_deadline_cluster(tasks, window_size=3)
-    if clustered_deadlines >= 3:
-        add_reason(
-            15,
-            f"{clustered_deadlines} deadlines are clustered inside a 48-hour window.",
-        )
-
-    late_night_blocks = sum(
-        1 for day in DAY_NAMES for block in block_map[day] if block["end"] > 22.5
-    )
-    if late_night_blocks > 0:
-        add_reason(10, f"{late_night_blocks} blocks run late at night.")
-
-    recovery_days = [day for day, hours in daily_hours.items() if hours <= 2.0]
-    if not recovery_days:
-        add_reason(15, "There is no light recovery day in this week.")
-
-    if total_hours > 50:
-        add_reason(15, f"Total weekly load is {total_hours:.1f} hours, above a healthy limit.")
-
-    context_switch_days = [day for day in DAY_NAMES if len(block_map[day]) >= 6]
-    if context_switch_days:
-        add_reason(
-            10,
-            f"{', '.join(context_switch_days)} have high context switching with many short blocks.",
-        )
-
-    if unscheduled_tasks:
-        add_reason(
-            10,
-            f"{len(unscheduled_tasks)} task(s) could not be scheduled before deadlines.",
-        )
-
-    score = min(score, 100)
-    level = _risk_level(score)
-    top_reasons = [text for _, text in sorted(reasons, key=lambda item: item[0], reverse=True)[:3]]
 
     return BurnoutAssessment(
-        score=score,
-        level=level,
-        reasons=top_reasons or ["Workload looks balanced with manageable pressure."],
-        metrics={
-            "daily_hours": daily_hours,
-            "total_hours": total_hours,
-            "heavy_day_threshold": heavy_day_threshold,
-            "heavy_days": [day for day, hours in daily_hours.items() if hours >= heavy_day_threshold],
-            "overloaded_days": overloaded_days,
-            "late_night_blocks": late_night_blocks,
-            "context_switch_days": context_switch_days,
-            "max_consecutive_heavy": max_consecutive_heavy,
-            "unscheduled_count": len(unscheduled_tasks),
-        },
+        score=int(assessment["score"]),
+        level=str(assessment["level"]),
+        reasons=list(assessment["reasons"]),
+        metrics=dict(assessment["metrics"]),
+    )
+
+
+def _assessment_from_pipeline_metadata(
+    optimized_result: dict[str, Any],
+) -> BurnoutAssessment | None:
+    """Build a burnout assessment from pipeline metadata when available."""
+
+    metadata = optimized_result.get("metadata", {})
+    score = metadata.get("burnout_score")
+    level = metadata.get("burnout_level")
+    reasons = metadata.get("burnout_reasons")
+    metrics = metadata.get("burnout_metrics")
+
+    if score is None or level is None or reasons is None or metrics is None:
+        return None
+
+    return BurnoutAssessment(
+        score=int(score),
+        level=str(level),
+        reasons=list(reasons),
+        metrics=dict(metrics),
     )
 
 
@@ -921,6 +886,21 @@ def _resolve_settings(payload: dict[str, Any]) -> dict[str, float]:
             preferences.get("preferred_study_end", payload.get("workday_end", 22.0))
         ),
         "slot_step": float(preferences.get("slot_step", payload.get("slot_step", 0.5))),
+        "weekly_hours_threshold": float(
+            preferences.get("weekly_hours_threshold", RULES["WEEKLY_HOURS_THRESHOLD"])
+        ),
+        "late_night_cutoff": float(
+            preferences.get("late_night_cutoff", RULES["LATE_NIGHT_CUTOFF"])
+        ),
+        "max_consecutive_blocks": float(
+            preferences.get("max_consecutive_blocks", RULES["MAX_CONSECUTIVE_BLOCKS"])
+        ),
+        "min_breaks_per_day": float(
+            preferences.get("min_breaks_per_day", RULES["MIN_BREAKS_PER_DAY"])
+        ),
+        "deadline_cluster_days": float(
+            preferences.get("deadline_cluster_days", RULES["DEADLINE_CLUSTER_DAYS"])
+        ),
     }
 
 
@@ -1162,73 +1142,6 @@ def _group_blocks_by_day(
         day_map[day].sort(key=lambda block: (block["start"], block["end"], block["title"]))
 
     return day_map
-
-
-def _count_consecutive_heavy_blocks(blocks: list[dict[str, Any]]) -> int:
-    """Find longest sequence of heavy blocks with minimal gaps."""
-
-    longest = 0
-    current = 0
-    previous_end = None
-
-    for block in blocks:
-        duration = block["end"] - block["start"]
-        if duration < 1.0:
-            current = 0
-            previous_end = block["end"]
-            continue
-
-        if previous_end is None:
-            current = 1
-        else:
-            gap = block["start"] - previous_end
-            current = current + 1 if gap <= 0.25 else 1
-
-        previous_end = block["end"]
-        longest = max(longest, current)
-
-    return longest
-
-
-def _has_meaningful_break(blocks: list[dict[str, Any]]) -> bool:
-    """Check for at least one break of 30+ minutes between blocks."""
-
-    if len(blocks) < 2:
-        return True
-
-    for index in range(len(blocks) - 1):
-        gap = blocks[index + 1]["start"] - blocks[index]["end"]
-        if gap >= 0.5:
-            return True
-    return False
-
-
-def _max_deadline_cluster(tasks: list[dict[str, Any]], *, window_size: int) -> int:
-    """Return highest number of deadlines in any N-day window."""
-
-    counts: dict[int, int] = defaultdict(int)
-    for task in tasks:
-        deadline_day = task.get("deadline_day")
-        if deadline_day in DAY_ORDER:
-            counts[DAY_ORDER[deadline_day]] += 1
-
-    best = 0
-    for start in range(len(DAY_NAMES)):
-        window_total = 0
-        for offset in range(window_size):
-            window_total += counts.get(start + offset, 0)
-        best = max(best, window_total)
-    return best
-
-
-def _risk_level(score: int) -> str:
-    """Translate score to categorical burnout risk."""
-
-    if score < 30:
-        return "Low"
-    if score < 60:
-        return "Moderate"
-    return "High"
 
 
 def _format_time_range(start: float, end: float) -> str:

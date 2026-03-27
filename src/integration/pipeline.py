@@ -1,20 +1,22 @@
 """Integration pipeline for schedule optimization.
 
 This module ties together the scheduler pieces so the UI can hand over a
-single payload and receive a single result object back. The burnout engine is
-still scaffolded in this repository, so the current pipeline focuses on the
-optimizer and returns placeholders where later stages can plug in.
+single payload and receive a single result object back. It normalizes student
+preferences, runs the scheduler, and returns burnout-aware metadata for the
+optimized plan.
 """
 
 from __future__ import annotations
 
-from typing import Any, TypedDict, cast
+import sys
+from typing import Any, cast
 
-try:
-    from typing import NotRequired
-except ImportError:  # pragma: no cover - Python < 3.11 compatibility
-    from typing_extensions import NotRequired
+if sys.version_info < (3, 12):
+    from typing_extensions import NotRequired, TypedDict
+else:  # pragma: no cover - stdlib path on Python 3.12+
+    from typing import NotRequired, TypedDict
 
+from src.burnout.scorer import compute_burnout_score
 from src.scheduler.constraints import DAY_ORDER, Commitment, ScheduledTask, SleepWindow, Task
 from src.scheduler.optimizer import OptimizationResult, optimize_schedule
 
@@ -36,6 +38,11 @@ class SchedulerPreferences(TypedDict, total=False):
     preferred_study_end: float
     slot_step: float
     buffer_hours: float
+    weekly_hours_threshold: float
+    late_night_cutoff: float
+    max_consecutive_blocks: int
+    min_breaks_per_day: int
+    deadline_cluster_days: int
 
 
 class PipelineInput(TypedDict, total=False):
@@ -65,8 +72,8 @@ def run_pipeline(payload: PipelineInput) -> PipelineResult:
     """Validate the incoming payload and run the scheduler.
 
     The function stays intentionally small so it is easy to expand later with:
-    - burnout scoring before optimization
-    - explanation generation
+    - baseline burnout scoring before optimization
+    - richer explanation generation
     - before/after comparison metrics
     """
 
@@ -135,6 +142,29 @@ def _build_pipeline_result(
 ) -> PipelineResult:
     """Create a predictable response object for downstream layers."""
 
+    burnout_assessment = compute_burnout_score(
+        optimization["scheduled_tasks"],
+        normalized_input["tasks"],
+        commitments=normalized_input["commitments"],
+        unscheduled_tasks=optimization["unscheduled_tasks"],
+        max_daily_hours=normalized_input["max_daily_hours"],
+        weekly_hours_threshold=float(
+            normalized_input["preferences"].get("weekly_hours_threshold", 50.0)
+        ),
+        late_night_cutoff=float(
+            normalized_input["preferences"].get("late_night_cutoff", 23.0)
+        ),
+        max_consecutive_blocks=int(
+            normalized_input["preferences"].get("max_consecutive_blocks", 3)
+        ),
+        min_breaks_per_day=int(
+            normalized_input["preferences"].get("min_breaks_per_day", 1)
+        ),
+        deadline_cluster_days=int(
+            normalized_input["preferences"].get("deadline_cluster_days", 2)
+        ),
+    )
+
     return {
         "original_tasks": list(normalized_input["tasks"]),
         "optimized_schedule": optimization["scheduled_tasks"],
@@ -157,11 +187,11 @@ def _build_pipeline_result(
                 sleep_window=normalized_input["sleep_window"],
                 max_daily_hours=normalized_input["max_daily_hours"],
             ),
-            # The burnout modules are still scaffolds, so these placeholders
-            # make the output contract forward-compatible.
-            "burnout_score": None,
-            "burnout_level": None,
-            "insights": [],
+            "burnout_score": burnout_assessment["score"],
+            "burnout_level": burnout_assessment["level"],
+            "burnout_reasons": burnout_assessment["reasons"],
+            "burnout_metrics": burnout_assessment["metrics"],
+            "insights": list(burnout_assessment["reasons"]),
         },
     }
 
@@ -237,6 +267,26 @@ def _validate_preferences(preferences: SchedulerPreferences) -> None:
     buffer_hours = preferences.get("buffer_hours")
     if buffer_hours is not None and float(buffer_hours) < 0:
         raise ValueError("preferences.buffer_hours cannot be negative.")
+
+    weekly_hours_threshold = preferences.get("weekly_hours_threshold")
+    if weekly_hours_threshold is not None and float(weekly_hours_threshold) <= 0:
+        raise ValueError("preferences.weekly_hours_threshold must be greater than 0.")
+
+    late_night_cutoff = preferences.get("late_night_cutoff")
+    if late_night_cutoff is not None and not 0 <= float(late_night_cutoff) <= 24:
+        raise ValueError("preferences.late_night_cutoff must be between 0 and 24.")
+
+    max_consecutive_blocks = preferences.get("max_consecutive_blocks")
+    if max_consecutive_blocks is not None and int(max_consecutive_blocks) < 1:
+        raise ValueError("preferences.max_consecutive_blocks must be at least 1.")
+
+    min_breaks_per_day = preferences.get("min_breaks_per_day")
+    if min_breaks_per_day is not None and int(min_breaks_per_day) < 0:
+        raise ValueError("preferences.min_breaks_per_day cannot be negative.")
+
+    deadline_cluster_days = preferences.get("deadline_cluster_days")
+    if deadline_cluster_days is not None and int(deadline_cluster_days) < 1:
+        raise ValueError("preferences.deadline_cluster_days must be at least 1.")
 
 
 def _build_schedule_quality_metrics(

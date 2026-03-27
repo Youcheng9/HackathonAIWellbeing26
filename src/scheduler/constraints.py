@@ -1,7 +1,13 @@
 """Basic rule checks for the scheduler."""
 
 from __future__ import annotations
-from typing import Literal, TypedDict
+import sys
+from typing import Literal
+
+if sys.version_info < (3, 12):
+    from typing_extensions import TypedDict
+else:  # pragma: no cover - stdlib path on Python 3.12+
+    from typing import TypedDict
 
 
 DayName = Literal["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

@@ -42,7 +42,7 @@ It:
 4. Automatically generates a healthier schedule
 
 We are updating the project plan to use:
-- A React frontend for interactive schedule input and visualization
+- A Streamlit frontend for interactive schedule input and visualization
 - A Python backend for optimization, burnout logic, and business rules
 - A lightweight API layer between the frontend and backend
 
@@ -78,7 +78,7 @@ We use a hybrid AI approach combining rules, heuristics, and intelligent schedul
 ---
 
 ## System Workflow
-1. User enters schedule data in the React frontend
+1. User enters schedule data in the Streamlit frontend
 2. Frontend sends the data to the Python backend
 3. Backend builds the initial schedule context
 4. Burnout engine analyzes risk
@@ -96,10 +96,10 @@ We use a hybrid AI approach combining rules, heuristics, and intelligent schedul
 - Explanation of risk factors
 - AI-based schedule optimization
 - Before vs After comparison
+- Personalized burnout thresholds and scheduling preferences
 
 ### Optional or Future Features
 - Break recommendations
-- Personalized preferences
 - Energy-based scheduling
 - Export schedule
 - Authentication system
@@ -110,7 +110,7 @@ We use a hybrid AI approach combining rules, heuristics, and intelligent schedul
 ## Tech Stack
 
 ### Frontend
-- React
+- Streamlit
 
 ### Backend
 - Python
