@@ -29,6 +29,12 @@ export function dateToDay(rawValue) {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][parsed.getDay()] || null;
 }
 
+export function dayToDate(day, weekStart) {
+  const index = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(day);
+  if (index < 0) return "";
+  return toDateInputValue(addDays(weekStart, index));
+}
+
 export function addDays(date, amount) {
   const next = new Date(date);
   next.setDate(next.getDate() + amount);

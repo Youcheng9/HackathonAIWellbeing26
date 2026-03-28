@@ -9,6 +9,7 @@ import {
   buildWeekOptions,
   capitalize,
   dateToDay,
+  dayToDate,
   formatDate,
   formatDeadline,
   formatHour,
@@ -22,6 +23,7 @@ import {
 } from "./lib/dateTime";
 import { analyzeScheduleRequest } from "./lib/api";
 import { createInitialCommitment, createInitialTask, createSamplePayload } from "./lib/sampleData";
+import { DAYS } from "./lib/constants";
 import { buildApiPayload, buildPreviewCalendar, filterBlocks, toDailyBlocks, toDayLoads, validateScheduleInputs } from "./lib/schedule";
 
 function App() {
@@ -38,7 +40,9 @@ function App() {
   const [analysis, setAnalysis] = useState(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [commitmentError, setCommitmentError] = useState("");
+  const [taskError, setTaskError] = useState("");
+  const [analysisError, setAnalysisError] = useState("");
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -72,12 +76,12 @@ function App() {
       tasks: activeWeekTasks,
     });
     if (validationError) {
-      setError(validationError);
+      setAnalysisError(validationError);
       return;
     }
 
     setLoading(true);
-    setError("");
+    setAnalysisError("");
 
     try {
       const parsedBody = await analyzeScheduleRequest(payload);
@@ -85,9 +89,9 @@ function App() {
       setTab(nextTab);
     } catch (fetchError) {
       if (fetchError instanceof TypeError) {
-        setError("Could not reach the backend. Start the API on http://127.0.0.1:8000 and try again.");
+        setAnalysisError("Could not reach the backend. Start the API on http://127.0.0.1:8000 and try again.");
       } else {
-        setError(fetchError.message || "Unable to analyze schedule.");
+        setAnalysisError(fetchError.message || "Unable to analyze schedule.");
       }
     } finally {
       setLoading(false);
@@ -96,7 +100,7 @@ function App() {
 
   function addCommitment() {
     if (!commitmentForm.title.trim()) {
-      setError("Add a title before saving a class or work block.");
+      setCommitmentError("Add a title before saving a class or work block.");
       return;
     }
 
@@ -105,16 +109,16 @@ function App() {
     const commitmentDay = dateToDay(commitmentForm.commitment_date);
 
     if (start === null || end === null || !commitmentDay) {
-      setError("Enter valid start and end times.");
+      setCommitmentError("Enter valid start and end times.");
       return;
     }
 
     if (end <= start) {
-      setError("Class or work end time must be later than start time.");
+      setCommitmentError("Class or work end time must be later than start time.");
       return;
     }
 
-    setError("");
+    setCommitmentError("");
     setCommitments((current) => [
       ...current,
       {
@@ -131,29 +135,29 @@ function App() {
 
   function addTask() {
     if (!taskForm.title.trim()) {
-      setError("Add a task title before saving.");
+      setTaskError("Add a task title before saving.");
       return;
     }
     if (taskForm.duration <= 0) {
-      setError("Task duration must be greater than zero.");
+      setTaskError("Task duration must be greater than zero.");
       return;
     }
     if (!taskForm.deadline_date) {
-      setError("Choose a deadline date for the task.");
+      setTaskError("Choose a deadline date for the task.");
       return;
     }
     if (!taskForm.deadline_time) {
-      setError("Choose a deadline time for the task.");
+      setTaskError("Choose a deadline time for the task.");
       return;
     }
 
     const deadlineDay = dateToDay(taskForm.deadline_date);
     if (!deadlineDay) {
-      setError("Choose a valid deadline date.");
+      setTaskError("Choose a valid deadline date.");
       return;
     }
 
-    setError("");
+    setTaskError("");
     setTasks((current) => [
       ...current,
       {
@@ -174,7 +178,9 @@ function App() {
     setCommitmentForm(createInitialCommitment(getWeekStart(new Date())));
     setTaskForm(createInitialTask(getWeekStart(new Date())));
     setAnalysis(null);
-    setError("");
+    setCommitmentError("");
+    setTaskError("");
+    setAnalysisError("");
   }
 
   const beforeAssessment = analysis?.before_assessment;
@@ -367,12 +373,27 @@ function App() {
                     <TimeField label="Start" value={commitmentForm.start} onChange={(value) => setCommitmentForm((current) => ({ ...current, start: value }))} />
                     <TimeField label="End" value={commitmentForm.end} onChange={(value) => setCommitmentForm((current) => ({ ...current, end: value }))} />
                     <Field label="Weekday">
-                      <input value={dateToDay(commitmentForm.commitment_date) || ""} readOnly />
+                      <select
+                        value={dateToDay(commitmentForm.commitment_date) || "Mon"}
+                        onChange={(event) =>
+                          setCommitmentForm((current) => ({
+                            ...current,
+                            commitment_date: dayToDate(event.target.value, selectedWeekStart),
+                          }))
+                        }
+                      >
+                        {DAYS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                   </div>
                   <button className="btn btn-primary" type="button" onClick={addCommitment}>
                     Add Class or Work Block
                   </button>
+                  {commitmentError ? <p className="error-banner">{commitmentError}</p> : null}
                 </article>
 
                 <article className="card">
@@ -393,15 +414,41 @@ function App() {
                       <input value={taskForm.title} placeholder="Essay Draft" onChange={(event) => setTaskForm((current) => ({ ...current, title: event.target.value }))} />
                     </Field>
                     <NumberField label="Est. hours" min="0.25" step="0.25" value={taskForm.duration} onChange={(value) => setTaskForm((current) => ({ ...current, duration: value }))} />
-                    <DateField label="Deadline date" value={taskForm.deadline_date} onChange={(value) => setTaskForm((current) => ({ ...current, deadline_date: value, deadline_day: dateToDay(value) || current.deadline_day }))} />
+                    <DateField
+                      label="Deadline date"
+                      value={taskForm.deadline_date}
+                      onChange={(value) =>
+                        setTaskForm((current) => ({
+                          ...current,
+                          deadline_date: value,
+                          deadline_day: dateToDay(value) || current.deadline_day,
+                        }))
+                      }
+                    />
                     <TimeField label="Deadline time" value={taskForm.deadline_time} onChange={(value) => setTaskForm((current) => ({ ...current, deadline_time: value }))} />
                     <Field label="Weekday">
-                      <input value={dateToDay(taskForm.deadline_date) || taskForm.deadline_day} readOnly />
+                      <select
+                        value={dateToDay(taskForm.deadline_date) || taskForm.deadline_day}
+                        onChange={(event) =>
+                          setTaskForm((current) => ({
+                            ...current,
+                            deadline_day: event.target.value,
+                            deadline_date: dayToDate(event.target.value, selectedWeekStart),
+                          }))
+                        }
+                      >
+                        {DAYS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </select>
                     </Field>
                   </div>
                   <button className="btn btn-primary" type="button" onClick={addTask}>
                     Add Movable Task
                   </button>
+                  {taskError ? <p className="error-banner">{taskError}</p> : null}
                   <p className="helper-copy">Deadline date and time define when the task is due. The optimizer can still move the work earlier in the week.</p>
                 </article>
               </div>
@@ -429,6 +476,7 @@ function App() {
                 <TimePreferenceField label="Sleep start" value={sleepWindow.start} onChange={(value) => setSleepWindow((current) => ({ ...current, start: value }))} />
                 <TimePreferenceField label="Sleep end" value={sleepWindow.end} onChange={(value) => setSleepWindow((current) => ({ ...current, end: value }))} />
               </div>
+              {analysisError ? <p className="error-banner">{analysisError}</p> : null}
             </article>
 
             <div className="schedule-actions">
@@ -439,8 +487,6 @@ function App() {
                 Reset Sample
               </button>
             </div>
-
-            {error ? <p className="error-banner">{error}</p> : null}
           </div>
         )}
 
