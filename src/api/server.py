@@ -8,8 +8,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.integration.analysis import assess_burnout, build_baseline_schedule, resolve_settings
 from src.integration.pipeline import PipelineInput, run_pipeline
-from src.ui.views import assess_burnout, build_baseline_schedule, _resolve_settings
 
 
 app = FastAPI(title="BalanceAI API", version="1.0.0")
@@ -40,7 +40,7 @@ def analyze_schedule(payload: PipelineInput) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     before_plan = build_baseline_schedule(payload)
-    settings = _resolve_settings(payload)
+    settings = resolve_settings(payload)
 
     before_assessment = assess_burnout(
         commitments=payload.get("commitments", []),
