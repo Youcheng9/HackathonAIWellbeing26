@@ -112,7 +112,10 @@ function App() {
   );
 
   async function analyzeSchedule(nextTab = "insights") {
-    const validationError = validateSchedulePayload(payload);
+    const validationError = validateScheduleInputs({
+      commitments: activeWeekCommitments,
+      tasks: activeWeekTasks,
+    });
     if (validationError) {
       setError(validationError);
       return;
@@ -882,23 +885,23 @@ function toDayLoads(dailyHours = {}) {
   return DAYS.map((day) => Number(dailyHours?.[day] || 0));
 }
 
-function validateSchedulePayload(nextPayload) {
-  if (!nextPayload.commitments.length && !nextPayload.tasks.length) {
+function validateScheduleInputs({ commitments, tasks }) {
+  if (!commitments.length && !tasks.length) {
     return "Add at least one class, work block, or task in the currently selected week before analyzing.";
   }
-  if (nextPayload.tasks.some((task) => !task.title?.trim())) {
+  if (tasks.some((task) => !task.title?.trim())) {
     return "Every task needs a title.";
   }
-  if (nextPayload.tasks.some((task) => task.deadline_date && !dateToDay(task.deadline_date))) {
+  if (tasks.some((task) => task.deadline_date && !dateToDay(task.deadline_date))) {
     return "Each task needs a valid deadline date.";
   }
-  if (nextPayload.tasks.some((task) => !task.deadline_time)) {
+  if (tasks.some((task) => !task.deadline_time)) {
     return "Each task needs a deadline time.";
   }
-  if (nextPayload.tasks.some((task) => !DAYS.includes(task.deadline_day))) {
+  if (tasks.some((task) => !DAYS.includes(task.deadline_day))) {
     return "Each task needs a valid deadline day.";
   }
-  if (nextPayload.commitments.some((item) => item.end <= item.start)) {
+  if (commitments.some((item) => item.end <= item.start)) {
     return "Every class or work block must end after it starts.";
   }
   return "";
