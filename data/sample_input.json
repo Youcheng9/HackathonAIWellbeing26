@@ -52,7 +52,12 @@
     "preferred_study_start": 7.0,
     "preferred_study_end": 22.0,
     "slot_step": 0.5,
-    "buffer_hours": 1.0
+    "buffer_hours": 1.0,
+    "weekly_hours_threshold": 50.0,
+    "late_night_cutoff": 23.0,
+    "max_consecutive_blocks": 3,
+    "min_breaks_per_day": 1,
+    "deadline_cluster_days": 2
   },
   "sleep_window": {
     "start": 23.0,

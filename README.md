@@ -1,4 +1,6 @@
-# BalanceAI - AI Schedule Arranger and Burnout Alert
+# BalanceAI
+
+BalanceAI is an AI-powered student planning app that helps users build a weekly schedule, detect burnout risk, and generate a healthier optimized plan.
 
 ## Team Members
 - **Freeman Yiu** - Integration / Repo Lead / QA
@@ -6,170 +8,200 @@
 - **Yen Nguyen** - Frontend / UX (React)
 - **Matthew Yeung** - Burnout Detection Engine
 
----
-
-## Project Overview
-BalanceAI is an AI-powered web application designed to help students manage their schedules while avoiding burnout.
-
-Students can input their:
+## What It Does
+Users can enter:
 - Classes
 - Work shifts
-- Tasks and assignments
+- Assignments and study tasks
 - Deadlines
-- Estimated task durations
+- Personal workload preferences
 
-The system analyzes the schedule, detects burnout risk, and intelligently rearranges tasks into a healthier, more balanced plan.
+The app then:
+- analyzes burnout risk
+- explains why a schedule looks unhealthy
+- optimizes task placement around fixed commitments
+- compares the original and improved weekly plan
 
----
+## Why It Is AI-Powered
+BalanceAI uses a hybrid AI approach rather than a chatbot-based approach.
 
-## Problem Statement
-Students often overload their schedules without realizing the long-term impact on their health and productivity.
+It combines:
+- rule-based burnout scoring
+- heuristic and constraint-based scheduling
+- explainable workload insights
 
-Current tools such as calendars and planners help organize tasks, but they often:
-- Do not detect burnout risk
-- Do not provide intelligent scheduling suggestions
-- Do not optimize workload distribution
+This means the system makes intelligent planning decisions and produces recommendations based on schedule structure, deadlines, workload limits, and recovery time.
 
----
-
-## Our Solution
-BalanceAI goes beyond basic scheduling.
-
-It:
-1. Analyzes workload patterns
-2. Detects burnout risk
-3. Explains why the schedule is unhealthy
-4. Automatically generates a healthier schedule
-
-We are updating the project plan to use:
-- A React frontend for interactive schedule input and visualization
-- A Python backend for optimization, burnout logic, and business rules
-- A lightweight API layer between the frontend and backend
-
----
-
-## How AI Is Used
-We use a hybrid AI approach combining rules, heuristics, and intelligent scheduling.
-
-### 1. Burnout Detection
-- Rule-based scoring system
-- Factors include:
-  - Daily workload
-  - Deadline clustering
-  - Lack of breaks
-  - Late-night work
-  - Consecutive heavy days
-
-### 2. Schedule Optimization
-- Constraint-based scheduling
-- Heuristic optimization
-- Respects:
-  - Fixed commitments such as class and work
-  - Task deadlines
-  - Sleep windows
-  - Daily workload limits
-
-### 3. Explainability
-- Generates human-readable insights such as:
-  - "You have 3 deadlines within 48 hours"
-  - "Thursday exceeds safe workload limits"
-  - "Your schedule includes too much late-night work"
-
----
-
-## System Workflow
-1. User enters schedule data in the React frontend
-2. Frontend sends the data to the Python backend
-3. Backend builds the initial schedule context
-4. Burnout engine analyzes risk
-5. Optimizer rearranges tasks
-6. System compares before vs after
-7. Frontend displays improvements and insights
-
----
-
-## Features
-
-### Core Features
-- Input classes, work shifts, and tasks
-- Burnout risk scoring (Low / Medium / High)
-- Explanation of risk factors
-- AI-based schedule optimization
-- Before vs After comparison
-
-### Optional or Future Features
-- Break recommendations
-- Personalized preferences
-- Energy-based scheduling
-- Export schedule
-- Authentication system
-- Calendar integrations
-
----
-
-## Tech Stack
+## Current Architecture
 
 ### Frontend
 - React
+- Vite
 
 ### Backend
+- FastAPI
 - Python
 
-### Libraries
-- Pandas for data handling
-- OR-Tools or custom heuristics for optimization
+### Core Logic
+- Scheduler / optimizer in `src/scheduler/`
+- Burnout scoring in `src/burnout/`
+- API and integration pipeline in `src/api/` and `src/integration/`
 
-### Data Storage
-- JSON / in-memory for hackathon development
+### Optional Legacy Demo
+- A Streamlit demo entrypoint still exists in `app.py`, but the main app flow is now React + FastAPI.
 
----
+## Project Structure
+```text
+frontend/               React frontend
+src/api/                FastAPI server
+src/integration/        Shared pipeline and analysis helpers
+src/scheduler/          Scheduling and optimization logic
+src/burnout/            Burnout scoring and explanation logic
+tests/                  Backend pytest suite
+docs/                   Contracts and notes
+```
 
-## Example Use Case
+## How The App Works
+1. The user enters schedule data in the React frontend.
+2. The frontend sends a JSON payload to `POST /api/analyze`.
+3. The backend builds a baseline plan.
+4. The scheduler generates an optimized schedule.
+5. The burnout engine scores both the baseline and optimized plans.
+6. The frontend displays burnout insights and before-vs-after comparison views.
 
-### Input
-- 3 classes
-- 1 work shift
-- 3 assignments due in the same week
+## API
 
-### Output
-- Burnout Risk: **High**
-- Reasons:
-  - Heavy workload on Thursday
-  - Deadlines clustered within 2 days
+### Health Check
+`GET /api/health`
 
-### After Optimization
-- Tasks redistributed across the week
-- Burnout Risk reduced to **Moderate**
+Returns:
+```json
+{ "status": "ok" }
+```
 
----
+### Analyze Schedule
+`POST /api/analyze`
 
-## Innovation
-Unlike traditional planners, BalanceAI:
-- Detects burnout before it happens
-- Automatically restructures schedules
-- Provides explainable AI insights
+Example request:
+```json
+{
+  "commitments": [
+    { "title": "CS 101", "day": "Mon", "start": 9.0, "end": 10.5 }
+  ],
+  "tasks": [
+    { "title": "Essay Draft", "duration": 2.0, "deadline_day": "Tue" }
+  ],
+  "sleep_window": { "start": 23.0, "end": 7.0 },
+  "preferences": {
+    "max_daily_hours": 8.0,
+    "preferred_study_start": 7.0,
+    "preferred_study_end": 22.0,
+    "slot_step": 0.5,
+    "buffer_hours": 1.0,
+    "weekly_hours_threshold": 50.0,
+    "late_night_cutoff": 23.0,
+    "max_consecutive_blocks": 3,
+    "min_breaks_per_day": 1,
+    "deadline_cluster_days": 2
+  }
+}
+```
 
----
+The response includes:
+- `before_plan`
+- `after_plan`
+- `before_assessment`
+- `after_assessment`
+- `metadata`
 
-## Impact
-- Helps students maintain mental health
-- Improves productivity and time management
-- Scales as a lightweight student planning tool
+See [docs/scheduler_contract.md](/Users/FreemanYiu/Downloads/HackathonAIWellbeing26/docs/scheduler_contract.md) for the scheduler contract.
 
----
+## How To Run The Project
+
+### 1. Clone the repo
+```bash
+git clone <your-repo-url>
+cd HackathonAIWellbeing26
+```
+
+### 2. Set up the Python backend
+Create and activate a virtual environment:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install backend dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Start the FastAPI backend:
+```bash
+uvicorn src.api.server:app --reload --port 8000
+```
+
+The backend will run at:
+```text
+http://127.0.0.1:8000
+```
+
+### 3. Set up the React frontend
+In a new terminal:
+```bash
+cd frontend
+npm install
+```
+
+Start the frontend:
+```bash
+npm run dev
+```
+
+The frontend will run at a Vite local URL, usually:
+```text
+http://127.0.0.1:5173
+```
+
+### 4. Use the app
+- Open the frontend in your browser
+- Add commitments and tasks
+- Click `Analyze and Optimize`
+- View burnout analysis and before-vs-after schedule comparison
+
+## How To Run Tests
+
+From the project root:
+```bash
+source .venv/bin/activate
+pytest -q
+```
+
+## Optional Commands
+
+Build the frontend:
+```bash
+cd frontend
+npm run build
+```
+
+Run the legacy Streamlit demo:
+```bash
+source .venv/bin/activate
+streamlit run app.py
+```
+
+## Notes
+- The frontend currently expects the backend at `http://127.0.0.1:8000`.
+- If the backend is not running, the frontend cannot analyze schedules.
+- Backend tests cover scheduler logic, burnout logic, and API behavior.
 
 ## Future Improvements
-- Machine learning-based personalization
-- Mobile app version
-- Google Calendar integration
-- Long-term burnout prediction
-
----
-
-## Acknowledgments
-Built for AI Hackathon 2026.
-
----
+- Calendar export
+- Authentication
+- Mobile-friendly packaging
+- Smarter personalization
+- Calendar integrations
 
 ## License
 MIT License

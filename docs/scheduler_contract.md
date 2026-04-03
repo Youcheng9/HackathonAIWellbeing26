@@ -163,9 +163,38 @@ If `preferences` is omitted, the scheduler uses default values.
         "end": 7.0
       }
     },
-    "burnout_score": null,
-    "burnout_level": null,
-    "insights": []
+    "burnout_score": 25,
+    "burnout_level": "Low",
+    "burnout_reasons": [
+      "Workload looks balanced with manageable pressure."
+    ],
+    "burnout_metrics": {
+      "daily_hours": {
+        "Mon": 2.0,
+        "Tue": 0.0,
+        "Wed": 0.0,
+        "Thu": 0.0,
+        "Fri": 0.0,
+        "Sat": 0.0,
+        "Sun": 0.0
+      },
+      "total_hours": 2.0,
+      "heavy_day_threshold": 6.0,
+      "heavy_days": [],
+      "overloaded_days": [],
+      "late_night_blocks": 0,
+      "context_switch_days": [],
+      "max_consecutive_heavy": 1,
+      "unscheduled_count": 0,
+      "weekly_hours_threshold": 50.0,
+      "late_night_cutoff": 23.0,
+      "max_consecutive_blocks": 3,
+      "min_breaks_per_day": 1,
+      "deadline_cluster_days": 2
+    },
+    "insights": [
+      "Workload looks balanced with manageable pressure."
+    ]
   }
 }
 ```
@@ -207,6 +236,8 @@ Current fields:
 - `schedule_quality`
 - `burnout_score`
 - `burnout_level`
+- `burnout_reasons`
+- `burnout_metrics`
 - `insights`
 
 ### `metadata.schedule_quality`
@@ -239,7 +270,7 @@ Current fields:
 
 ## Current Limitations
 
-- Burnout fields are placeholders until the burnout modules are implemented.
+- Burnout metadata is heuristic and currently reports the optimized plan only.
 - The optimizer uses heuristics rather than a full solver.
 - Split chunks currently reuse the same task title rather than adding a chunk
   label such as "Part 1" or "Part 2".
